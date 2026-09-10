@@ -1,0 +1,51 @@
+{
+  "name": "dsh-custom-brand",
+  "version": "0.1.0",
+  "description": "Replace the DeepSeek Harness Web brand with your own: sidebar mark + wordmark, blank-session hero headline, tab title and favicon, all driven from a dedicated Settings page. 自定义 DSH Web 品牌：侧栏标志与名称、空会话首页标题、标签页标题与图标，均可在设置页中配置。",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "files": [
+    "lib",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/client-smoke.test.mjs",
+    "check": "node --check lib/index.js && node --check lib/client.js",
+    "pack": "pnpm pack"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "brand",
+    "logo",
+    "wordmark",
+    "sidebar",
+    "white-label"
+  ]
+}

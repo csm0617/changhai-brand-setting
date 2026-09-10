@@ -1,0 +1,14 @@
+# dsh-custom-brand — bundle patch layer.
+#
+# Installing this package as a profile bundle inserts exactly one loader row.
+# The browser half is picked up by dsh-client-modules through this package's
+# `dsh.client` declaration, exactly like the shipped ui-* packages.
+#
+# Activate the plugin through ONE path only: either list this package in the
+# profile's `dsh.profile.bundles` (the standard `dsh plugin --profile web add`
+# path), or paste this `insert` entry into the profile's own cordis.patch.yml.
+# Registering the same loader entry id in both places makes the loader throw
+# `duplicate loader entry id` at boot.
+- insert:
+    - id: custom-brand
+      name: dsh-custom-brand
