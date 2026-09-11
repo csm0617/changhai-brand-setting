@@ -1,7 +1,7 @@
 {
-  "name": "dsh-custom-brand",
+  "name": "changhai-brand-setting",
   "version": "0.1.0",
-  "description": "Replace the DeepSeek Harness Web brand with your own: sidebar mark + wordmark, blank-session hero headline, tab title and favicon, all driven from a dedicated Settings page. 自定义 DSH Web 品牌：侧栏标志与名称、空会话首页标题、标签页标题与图标，均可在设置页中配置。",
+  "description": "Replace the DeepSeek Harness Web brand with your own: sidebar mark + wordmark, blank-session hero headline, tab title and favicon, all driven from a dedicated Settings page. 长海品牌设置：侧栏标志与名称、空会话首页标题、标签页标题与图标，均可在设置页中配置。",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -42,6 +42,7 @@
     "deepseek-harness",
     "dsh",
     "dsh-plugin",
+    "changhai",
     "brand",
     "logo",
     "wordmark",

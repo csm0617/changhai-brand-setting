@@ -1,4 +1,4 @@
-# dsh-custom-brand
+# changhai-brand-setting
 
 [English](README.md) | 中文
 
@@ -25,7 +25,7 @@
 本包是标准 bundle（声明了 `dsh.bundle.patch`），走常规安装路径即可：
 
 ```sh
-dsh plugin --profile web add /绝对路径/dsh-custom-brand
+dsh plugin --profile web add /绝对路径/changhai-brand-setting
 ```
 
 这条路通过 `dsh.profile.bundles` 注册加载器条目，启动时读取，所以安装后需要重启一次 `dsh web`，再刷新页面。
@@ -34,8 +34,8 @@ dsh plugin --profile web add /绝对路径/dsh-custom-brand
 
 ```yaml
 - insert:
-    - id: custom-brand
-      name: dsh-custom-brand
+    - id: changhai-brand-setting
+      name: changhai-brand-setting
 ```
 
 **两条路只能选一条**：同一个加载器条目 id 注册两次，启动时会抛 `duplicate loader entry id`。
@@ -61,15 +61,15 @@ dsh plugin --profile web add /绝对路径/dsh-custom-brand
 ### 2. 手工两步（脚本做的就是这两步）
 
 ```sh
-cp -R /media/usb/dsh-custom-brand "$DSH_HOME/profiles/web/node_modules/"
+cp -R /media/usb/changhai-brand-setting "$DSH_HOME/profiles/web/node_modules/"
 ```
 
 然后往 `$DSH_HOME/profiles/web/cordis.patch.yml` 追加：
 
 ```yaml
 - insert:
-    - id: custom-brand
-      name: dsh-custom-brand
+    - id: changhai-brand-setting
+      name: changhai-brand-setting
 ```
 
 补丁文件的根节点必须保持为列表：如果文件里现在只有 `[]`，要用上面的条目**替换**那一行，而不是追加在它后面。
@@ -78,19 +78,19 @@ cp -R /media/usb/dsh-custom-brand "$DSH_HOME/profiles/web/node_modules/"
 
 ```sh
 pnpm pack                                 # 在有源码的机器上执行
-# 把 dsh-custom-brand-0.1.0.tgz 拷到目标机，然后：
-dsh plugin --profile web add --offline ./dsh-custom-brand-0.1.0.tgz
+# 把 changhai-brand-setting-0.1.0.tgz 拷到目标机，然后：
+dsh plugin --profile web add --offline ./changhai-brand-setting-0.1.0.tgz
 ```
 
-本地 tarball 不需要 registry，本包也没有依赖要解析，profile 自己的依赖早已在它的 store 里，所以 `--offline` 全程不碰网络（已实测：在空项目里 `pnpm add --offline ./dsh-custom-brand-0.1.0.tgz` 能正常解析并装好）。这条路走的是 `dsh.profile.bundles`，因此需要重启 `dsh web`；之后请把 `cordis.patch.yml` 里同 id 的条目删掉（两条路只能留一条）。也可以直接把 tarball 解包进 profile 的 `node_modules`，那就等同于第 1 种方式。
+本地 tarball 不需要 registry，本包也没有依赖要解析，profile 自己的依赖早已在它的 store 里，所以 `--offline` 全程不碰网络（已实测：在空项目里 `pnpm add --offline ./changhai-brand-setting-0.1.0.tgz` 能正常解析并装好）。这条路走的是 `dsh.profile.bundles`，因此需要重启 `dsh web`；之后请把 `cordis.patch.yml` 里同 id 的条目删掉（两条路只能留一条）。也可以直接把 tarball 解包进 profile 的 `node_modules`，那就等同于第 1 种方式。
 
 Windows 上请用第 2 或第 3 种方式；shell 安装脚本只支持 POSIX。
 
 ### 安装后自检
 
 ```sh
-node --check "$DSH_HOME/profiles/web/node_modules/dsh-custom-brand/lib/client.js"
-curl -s -X POST http://127.0.0.1:3080/custom-brand/api \
+node --check "$DSH_HOME/profiles/web/node_modules/changhai-brand-setting/lib/client.js"
+curl -s -X POST http://127.0.0.1:3080/changhai-brand-setting/api \
   -H 'content-type: application/json' -d '{"method":"status"}'
 ```
 
@@ -121,7 +121,7 @@ __DSH_BRAND.help()
 
 ## 配置存放位置
 
-`$DSH_HOME/custom-brand.json`（默认 `~/.dsh/custom-brand.json`），由本包的宿主半原子写入、仅本人可读。浏览器通过一个带围栏的 JSON 接口 `POST /custom-brand/api` 访问：
+`$DSH_HOME/changhai-brand-setting.json`（默认 `~/.dsh/changhai-brand-setting.json`），由本包的宿主半原子写入、仅本人可读。浏览器通过一个带围栏的 JSON 接口 `POST /changhai-brand-setting/api` 访问：
 
 - `{ "method": "get" }` → 返回整个状态对象；
 - `{ "method": "set", "patch": { ... } }` → 合并补丁：字符串写入、`null` 删除、白名单外的键直接丢弃；

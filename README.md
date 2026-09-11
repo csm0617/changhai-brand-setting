@@ -1,4 +1,4 @@
-# dsh-custom-brand
+# changhai-brand-setting
 
 English | [中文](README.zh.md)
 
@@ -42,7 +42,7 @@ The package is a normal bundle: it declares `dsh.bundle.patch`, so the standard
 path works.
 
 ```sh
-dsh plugin --profile web add /absolute/path/to/dsh-custom-brand
+dsh plugin --profile web add /absolute/path/to/changhai-brand-setting
 ```
 
 That path registers the loader row through `dsh.profile.bundles`, which is read
@@ -53,8 +53,8 @@ For a local checkout you can instead activate the row from the profile's own
 
 ```yaml
 - insert:
-    - id: custom-brand
-      name: dsh-custom-brand
+    - id: changhai-brand-setting
+      name: changhai-brand-setting
 ```
 
 **Use exactly one of the two paths.** Registering the same loader entry id in
@@ -90,15 +90,15 @@ patch file to `[]`.
 ### 2. By hand (same two steps the script performs)
 
 ```sh
-cp -R /media/usb/dsh-custom-brand "$DSH_HOME/profiles/web/node_modules/"
+cp -R /media/usb/changhai-brand-setting "$DSH_HOME/profiles/web/node_modules/"
 ```
 
 then append to `$DSH_HOME/profiles/web/cordis.patch.yml`:
 
 ```yaml
 - insert:
-    - id: custom-brand
-      name: dsh-custom-brand
+    - id: changhai-brand-setting
+      name: changhai-brand-setting
 ```
 
 The patch file's root must stay a list: if it currently holds only `[]`, replace
@@ -108,14 +108,14 @@ that line with the entry above instead of appending after it.
 
 ```sh
 pnpm pack                                 # on the machine that has the source
-# carry dsh-custom-brand-0.1.0.tgz over, then:
-dsh plugin --profile web add --offline ./dsh-custom-brand-0.1.0.tgz
+# carry changhai-brand-setting-0.1.0.tgz over, then:
+dsh plugin --profile web add --offline ./changhai-brand-setting-0.1.0.tgz
 ```
 
 A local tarball needs no registry, the package has no dependencies to resolve,
 and the profile's own dependencies are already in its store, so `--offline`
 completes without touching the network (verified: `pnpm add --offline
-./dsh-custom-brand-0.1.0.tgz` resolves and installs in a fresh project). This
+./changhai-brand-setting-0.1.0.tgz` resolves and installs in a fresh project). This
 path goes through `dsh.profile.bundles` and therefore needs a `dsh web`
 restart — afterwards remove any `cordis.patch.yml` entry for the same id.
 Unpacking the tarball straight into the profile's `node_modules` works too and
@@ -127,8 +127,8 @@ POSIX-only.
 ### Verifying the install
 
 ```sh
-node --check "$DSH_HOME/profiles/web/node_modules/dsh-custom-brand/lib/client.js"
-curl -s -X POST http://127.0.0.1:3080/custom-brand/api \
+node --check "$DSH_HOME/profiles/web/node_modules/changhai-brand-setting/lib/client.js"
+curl -s -X POST http://127.0.0.1:3080/changhai-brand-setting/api \
   -H 'content-type: application/json' -d '{"method":"status"}'
 ```
 
@@ -167,9 +167,9 @@ to its shipped default.
 
 ## Where settings live
 
-`$DSH_HOME/custom-brand.json` (default `~/.dsh/custom-brand.json`), written
+`$DSH_HOME/changhai-brand-setting.json` (default `~/.dsh/changhai-brand-setting.json`), written
 owner-only and atomically through this package's host half. The browser reaches
-it through a fenced JSON API at `POST /custom-brand/api`:
+it through a fenced JSON API at `POST /changhai-brand-setting/api`:
 
 - `{ "method": "get" }` → the whole state object;
 - `{ "method": "set", "patch": { ... } }` → merged patch; a string sets, `null`

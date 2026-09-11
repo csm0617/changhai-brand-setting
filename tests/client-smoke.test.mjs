@@ -62,7 +62,7 @@ function loadFactory(window) {
   // bundle's own `window` in scope so its factory closes over the same object
   // the test drives.
   new Function("window", `${source}\n`)(window);
-  assert.equal(definition?.id, "dsh-custom-brand", "bundle declares the plugin id");
+  assert.equal(definition?.id, "changhai-brand-setting", "bundle declares the plugin id");
   return definition.factory;
 }
 
@@ -301,8 +301,8 @@ test("registers the Brand settings page and no brand slots by default", { skip: 
   try {
     const sections = shell.registrations.filter((entry) => entry.options.name === "settings.section");
     assert.equal(sections.length, 1);
-    assert.equal(sections[0].options.id, "custom-brand");
-    assert.equal(sections[0].options.locale, "custom-brand");
+    assert.equal(sections[0].options.id, "changhai-brand-setting");
+    assert.equal(sections[0].options.locale, "changhai-brand-setting");
     assert.equal(
       shell.registrations.filter((entry) => entry.options.name.startsWith("sidebar.brand")).length,
       0,
@@ -449,7 +449,7 @@ test("hydrates from the host persistence API on start", { skip: React === null }
   const shell = boot();
   try {
     assert.equal(shell.calls.length, 1);
-    assert.equal(shell.calls[0].url, "/custom-brand/api");
+    assert.equal(shell.calls[0].url, "/changhai-brand-setting/api");
     assert.equal(shell.calls[0].body.method, "get");
   } finally {
     await shell.settle();

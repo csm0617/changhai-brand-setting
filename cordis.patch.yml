@@ -1,4 +1,4 @@
-# dsh-custom-brand — bundle patch layer.
+# changhai-brand-setting — bundle patch layer.
 #
 # Installing this package as a profile bundle inserts exactly one loader row.
 # The browser half is picked up by dsh-client-modules through this package's
@@ -10,5 +10,5 @@
 # Registering the same loader entry id in both places makes the loader throw
 # `duplicate loader entry id` at boot.
 - insert:
-    - id: custom-brand
-      name: dsh-custom-brand
+    - id: changhai-brand-setting
+      name: changhai-brand-setting

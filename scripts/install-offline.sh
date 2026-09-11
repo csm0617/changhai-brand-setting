@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 #
-# dsh-custom-brand — offline installer.
+# changhai-brand-setting — offline installer.
 #
 # Copies (or links) this plugin into a DSH profile and activates exactly one
 # loader row for it, without pnpm, without a registry, and without network.
@@ -26,7 +26,7 @@ FORCE="0"
 ACTION="install"
 
 die() {
-  printf 'dsh-custom-brand: %s\n' "$1" >&2
+  printf 'changhai-brand-setting: %s\n' "$1" >&2
   exit 1
 }
 
@@ -58,9 +58,9 @@ SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE_DIR="$DSH_HOME_DIR/profiles/$PROFILE_NAME"
 [ -d "$PROFILE_DIR" ] || die "profile directory not found: $PROFILE_DIR"
 PATCH_FILE="$PROFILE_DIR/cordis.patch.yml"
-TARGET_DIR="$PROFILE_DIR/node_modules/dsh-custom-brand"
-PACKAGE_ID="dsh-custom-brand"
-ENTRY_ID="custom-brand"
+TARGET_DIR="$PROFILE_DIR/node_modules/changhai-brand-setting"
+PACKAGE_ID="changhai-brand-setting"
+ENTRY_ID="changhai-brand-setting"
 
 PACKAGE_NAME="$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SOURCE_DIR/package.json" | head -1)"
 [ "$PACKAGE_NAME" = "$PACKAGE_ID" ] || die "unexpected package name: $PACKAGE_NAME"
