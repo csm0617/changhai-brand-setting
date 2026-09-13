@@ -473,21 +473,39 @@ test("claims exactly the configured slots and renders every occupant", { skip: R
   }
 });
 
-test("falls back to the text value when an image source has no image yet", { skip: React === null }, async () => {
+test("shows the built-in logo by default, replaced by a picked image", { skip: React === null }, async () => {
   const shell = boot();
   try {
-    // Logo kind is "image" but nothing was picked (or it was cleared): the mark
-    // must show the text value instead of leaving an empty box.
-    shell.window.__DSH_BRAND.set({ enabled: "1", logoKind: "image", logoText: "长海", nameKind: "image", nameText: "changhai" });
-    const occupied = shell.registrations.filter((entry) => entry.options.name !== "settings.section");
-    const mark = occupied.find((entry) => entry.options.name === "sidebar.brand.mark");
-    const name = occupied.find((entry) => entry.options.name === "sidebar.brand.name");
-    assert.equal(mark.component(propsFor(mark)).props.children, "长海");
-    assert.equal(name.component(propsFor(name)).props.children, "changhai");
+    const occupied = () => shell.registrations.filter((entry) => entry.options.name !== "settings.section");
+    const find = (name) => occupied().find((entry) => entry.options.name === name);
 
-    // A picked image wins over the text value.
+    // A fresh install, with nothing configured but the master switch: the mark is
+    // the image this plugin ships, at both the sidebar and hero slots.
+    shell.window.__DSH_BRAND.set({ enabled: "1" });
+    assert.deepEqual(shell.window.__DSH_BRAND.slots(), [
+      "sidebar.brand.mark",
+      "conversation.hero.brand.mark",
+    ]);
+    const mark = find("sidebar.brand.mark");
+    const defaultSrc = mark.component(propsFor(mark)).props.src;
+    assert.ok(
+      typeof defaultSrc === "string" && defaultSrc.startsWith("data:image/png;base64,"),
+      "the shipped mark is an embedded PNG",
+    );
+    assert.ok(defaultSrc.length > 1000, "…and it is the real artwork, not a stub");
+
+    // Picking an image replaces the built-in one.
     shell.window.__DSH_BRAND.set({ logoImage: "data:image/png;base64,AA==" });
     assert.equal(mark.component(propsFor(mark)).props.src, "data:image/png;base64,AA==");
+
+    // The text source still works and still takes precedence over the built-in
+    // image once chosen explicitly.
+    shell.window.__DSH_BRAND.set({ logoKind: "text", logoText: "长海", logoImage: "" });
+    assert.equal(mark.component(propsFor(mark)).props.children, "长海");
+
+    // "shipped" hands the slot back to the official occupant entirely.
+    shell.window.__DSH_BRAND.set({ logoKind: "shipped" });
+    assert.deepEqual(shell.window.__DSH_BRAND.slots(), []);
   } finally {
     await shell.settle();
     shell.restore();

@@ -1,7 +1,7 @@
 {
   "name": "changhai-brand-setting",
   "version": "0.1.0",
-  "description": "Replace the DeepSeek Harness Web brand with your own: sidebar mark + wordmark, blank-session hero headline + tagline, tab title and favicon, all driven from a dedicated Settings page. 长海品牌设置：侧栏标志与名称、空会话首页标题与小标语、标签页标题与图标，均可在设置页中配置。",
+  "description": "White-label the DeepSeek Harness Web GUI from a Settings page: the sidebar mark and wordmark, the blank-session headline, tagline and badge, the tab title and favicon — shipping the Changhai mark and tagline as defaults. 长海品牌设置：侧栏标志与名称、空会话首页标题、小标语与徽标、标签页标题与图标，均可在设置页中配置，并内置长海标志与标语。",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",

@@ -19,7 +19,7 @@ behaviour and hover states.
 | Sidebar wordmark | Occupant of the `sidebar.brand.name` slot |
 | Blank-session hero mark | Occupant of the `conversation.hero.brand.mark` slot |
 | Hero headline / preview badge | Guarded text substitution by exact match against the shipped copy, read from the live locale dictionary |
-| Hero tagline | A node this plugin **creates** under the headline, removed when the field is cleared |
+| Hero tagline | A node this plugin **creates** under the headline; ships with default copy and an explicit hide |
 | Tagline alignment | Measured inset on that node only — the headline is never restyled |
 | Tab title, favicon | Guarded `document.title` / `rel="icon"` writes |
 
@@ -30,6 +30,14 @@ entry renders — so this plugin registers at `priority: -100` and wins the cell
 **only while a surface actually differs from the shipped presentation**. With
 the switch off it registers nothing at all, so the official occupants, their
 fallbacks and the build badge stay exactly as shipped.
+
+The mark **ships with artwork of its own** — the Changhai wave, embedded in the
+browser half as a PNG data URL — so `logoKind` defaults to `image` and a fresh
+install is branded as soon as the master switch is on, with no file to carry
+alongside the package. Picking your own image replaces it; choosing `shipped`
+hands the slots back to the official occupant. The embedded file is the source
+artwork at its own 50×51px, because the image pipeline never upscales it (see
+`MAX_IMAGE_EDGE`) and resampling here would only inflate the bundle.
 
 The hero headline and the preview badge are not slots (they are i18n strings
 compiled into `ui-conversation`), and `document.title` / the favicon have no
@@ -171,8 +179,9 @@ navigation, next to Appearance.
 
 - **Enable custom brand** — the master switch. Off (the default) leaves the
   shipped brand untouched; the configuration is kept either way.
-- **Mark** — `Official` / `Image` (pick a file, downscaled to 512 px and stored
-  as a PNG data URL) / `Text` (a monogram or emoji) / `Hidden`, plus a size.
+- **Mark** — `Image` (the default: the built-in Changhai wave, or pick a file to
+  replace it — downscaled to at most 512 px and stored as a PNG data URL) /
+  `Official` / `Text` (a monogram or emoji) / `Hidden`, plus a size.
 - **Name** — the sidebar wordmark: text with size, weight, letter spacing and
   colour, or an image, or hidden.
 - **Hero** — the blank-session headline and the preview badge (keep the shipped
@@ -235,11 +244,12 @@ The smoke test loads `lib/client.js` through a captured
 `window.__ModuleLoader__.load`, drives it with a fake cordis context, DOM and
 storage, and asserts that the settings page registers, that slots are claimed
 only for configured surfaces (and released when switched off), that every
-registered component renders, that the tab-title substitution works, that the
-tagline shows the built-in line with no configuration at all and is removed only
-when explicitly hidden (reusing one node across syncs rather than duplicating
-it), and that aligning to the title writes the measured inset without ever
-restyling the headline. It
+registered component renders, that the mark shows the built-in artwork on a fresh
+install and is replaced by a picked image, that the tab-title substitution
+works, that the tagline shows the built-in line with no configuration at all and
+is removed only when explicitly hidden (reusing one node across syncs rather than
+duplicating it), and that aligning to the title writes the measured inset without
+ever restyling the headline. It
 resolves React from `$DSH_WEB_MODULES`, then
 `$DSH_HOME/profiles/web/node_modules`, then `./node_modules`.
 Host-half edits need a `dsh web` restart (the host loader caches modules by
@@ -270,7 +280,11 @@ plugin in the open page.
 - **Images are stored as data URLs** in the settings file, so prefer a simple
   mark over a photograph; a picked image longer than 1.5 M characters is
   refused, and the page says so instead of failing silently. An image source
-  with nothing picked falls back to the text value, so a surface never blanks.
+  with nothing picked shows the built-in wave, so a surface never blanks.
+- **The built-in mark is the source artwork at 50×51px**, embedded as-is (about
+  5.5 KB). That is crisp at the sizes the shell asks for (24 px in the sidebar,
+  34 px in the hero), but it is not a vector: pick a larger image if you want to
+  use the mark at a much bigger size, since nothing here will upscale it.
 - **An image pick that fails is visible in the page**, not only in the console.
 
 ## License
