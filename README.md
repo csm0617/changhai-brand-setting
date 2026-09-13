@@ -20,6 +20,7 @@ behaviour and hover states.
 | Blank-session hero mark | Occupant of the `conversation.hero.brand.mark` slot |
 | Hero headline / preview badge | Guarded text substitution by exact match against the shipped copy, read from the live locale dictionary |
 | Hero tagline | A node this plugin **creates** under the headline, removed when the field is cleared |
+| Tagline alignment | Measured inset on that node only — the headline is never restyled |
 | Tab title, favicon | Guarded `document.title` / `rel="icon"` writes |
 
 The three slots are `kind: 'single'`, and
@@ -46,6 +47,18 @@ and accepted only when it is the innermost element holding the headline — the
 outer hero stack also contains one, and inserting there would drop the tagline
 below the composer instead. Cleared (the default), the node is removed outright,
 so the shipped hero stays byte-identical.
+
+The tagline can also be **aligned to the title** instead of centred. Only the
+tagline moves: the headline keeps the shell's layout untouched, which is why the
+override is written as `text-align` + `padding-left` on the tagline node alone
+rather than by restyling the row. The padding is the *measured* distance from the
+row's left edge to where the centred title's glyphs actually begin — read with a
+`Range` over the headline's contents, because that distance follows the title's
+rendered width and is not derivable from the text (measured on the live shell:
+~158px for a long headline, ~319px for a short one). It is re-measured whenever
+the copy changes and on `resize`, since a viewport change or a swapping web font
+reflows the title without any DOM mutation to observe. Centring, the default,
+measures nothing and writes no inset.
 
 ## Install
 
@@ -159,7 +172,9 @@ navigation, next to Appearance.
   colour, or an image, or hidden.
 - **Hero** — the blank-session headline and the preview badge (keep the shipped
   text, write your own, or hide it), plus a **tagline** under the title with its
-  own size and colour (empty = no tagline, the default).
+  own size, colour and alignment (empty = no tagline, the default). The tagline
+  is either **Centred** (the default) or **Align to title**, which hangs it from
+  the headline's own left edge; the headline itself is never moved.
 - **Browser** — the tab title (the product name is substituted inside
   `document.title`, keeping the session part) and the favicon.
 - **Live preview** — the page previews the mark and wordmark as you edit.
@@ -168,7 +183,7 @@ navigation, next to Appearance.
 
 ```js
 __DSH_BRAND.set({ enabled: '1', logoKind: 'text', logoText: '长海', nameKind: 'text', nameText: 'changhai' })
-__DSH_BRAND.set({ heroTagline: '让每一次对话都通向未来', taglineSize: '15' })
+__DSH_BRAND.set({ heroTagline: '让每一次对话都通向未来', taglineSize: '15', taglineAlign: 'title' })
 __DSH_BRAND.get()    // current settings
 __DSH_BRAND.slots()  // slots currently claimed
 __DSH_BRAND.reset()  // back to the shipped brand
@@ -214,7 +229,9 @@ storage, and asserts that the settings page registers, that slots are claimed
 only for configured surfaces (and released when switched off), that every
 registered component renders, that the tab-title substitution works, that the
 tagline lands directly under the headline row and is removed outright when
-cleared (reusing one node across syncs rather than duplicating it). It
+cleared (reusing one node across syncs rather than duplicating it), and that
+aligning to the title writes the measured inset without ever restyling the
+headline. It
 resolves React from `$DSH_WEB_MODULES`, then
 `$DSH_HOME/profiles/web/node_modules`, then `./node_modules`.
 Host-half edits need a `dsh web` restart (the host loader caches modules by
@@ -235,6 +252,13 @@ plugin in the open page.
   the node is written from a `MutationObserver` callback, every write is
   guarded by an equality check and the node is reused rather than recreated, so
   a steady state produces no further mutations.
+- **"Align to title" measures the live layout.** The inset comes from the
+  rendered headline, so it is exact for the title as drawn — but it is a
+  measurement, not a rule, so it is re-taken on copy changes and on `resize`. A
+  reflow that fires neither (an exotic animation that moves the title without
+  resizing the window) would leave the inset stale until the next sync. If the
+  headline cannot be measured, the tagline falls back to a 0px inset — visible
+  and recoverable, never thrown.
 - **Images are stored as data URLs** in the settings file, so prefer a simple
   mark over a photograph; a picked image longer than 1.5 M characters is
   refused, and the page says so instead of failing silently. An image source

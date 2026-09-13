@@ -69,6 +69,8 @@ function loadFactory(window) {
 /** Minimal DOM good enough for the substitution paths. */
 function createDom() {
   const elements = [];
+  /** The box a node with no layout supplied reports. */
+  const ZERO_BOX = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
   const makeElement = (tag) => {
     const element = {
       tagName: String(tag).toUpperCase(),
@@ -134,6 +136,10 @@ function createDom() {
       querySelectorAll(selector) {
         return descendants(this, selector);
       },
+      /** Layout box, when a test supplied one; an all-zero box otherwise. */
+      getBoundingClientRect() {
+        return this.layout ?? ZERO_BOX;
+      },
     };
     elements.push(element);
     return element;
@@ -173,6 +179,21 @@ function createDom() {
     querySelector: (selector) => visit(body, selector, [])[0] ?? null,
     querySelectorAll: (selector) => visit(body, selector, []),
     createTreeWalker: () => ({ nextNode: () => null }),
+    /**
+     * Layout stand-in. Elements carry an explicit `layout` box (set by the tests
+     * that care), and a Range over an element's contents reports that element's
+     * own text box — which is what the alignment code measures to find where the
+     * centred headline's glyphs actually start.
+     */
+    createRange: () => ({
+      node: null,
+      selectNodeContents(node) {
+        this.node = node;
+      },
+      getBoundingClientRect() {
+        return this.node?.layout ?? ZERO_BOX;
+      },
+    }),
   };
   return { document, makeElement, body, visit };
 }
@@ -211,6 +232,15 @@ function installHeroRow(dom) {
   stack.appendChild(composer);
   body.appendChild(stack);
   for (const element of [anchor, host, headline, badge, row, composer, stack, body]) element.isConnected = true;
+  // Layout boxes matching the live shell's centred hero: the row spans 696px and
+  // the headline text is inset from its left edge, which is the inset the
+  // "align to title" mode measures. Tests move `headline.layout` to stand in for
+  // a title of a different length.
+  row.layout = { left: 420, top: 256, right: 1116, bottom: 290, width: 696, height: 34 };
+  // `layout` is read through a Range over the headline's contents, so give the
+  // element the same box (the real Range covers the glyphs, which for a leaf
+  // text span is the element's own box).
+  headline.layout = { left: 682, top: 257, right: 848, bottom: 289, width: 166, height: 32 };
   return { anchor, host, row, headline, badge, composer, stack };
 }
 
@@ -269,6 +299,8 @@ function boot({ declared, hero } = {}) {
   const heroRow = hero === true ? installHeroRow(dom) : null;
   const frames = [];
   const calls = [];
+  /** Listeners the plugin attached, keyed by event name. */
+  const listeners = new Map();
   const window = {
     requestAnimationFrame: (callback) => {
       frames.push(callback);
@@ -277,6 +309,17 @@ function boot({ declared, hero } = {}) {
     cancelAnimationFrame: () => {},
     setTimeout: (callback) => setTimeout(callback, 0),
     clearTimeout: (handle) => clearTimeout(handle),
+    addEventListener: (type, handler) => {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(handler);
+    },
+    removeEventListener: (type, handler) => {
+      listeners.get(type)?.delete(handler);
+    },
+    /** Fire one event, as the browser would. */
+    dispatch: (type) => {
+      for (const handler of [...(listeners.get(type) ?? [])]) handler({ type });
+    },
   };
   const localStorage = {
     store: new Map(),
@@ -638,6 +681,94 @@ test("picks the innermost headline holder, not an outer wrapper", { skip: React 
       stack.children.indexOf(composer) - stack.children.indexOf(node),
       1,
       "the tagline sits immediately above the composer, not past it",
+    );
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("hangs the tagline off the headline's left edge, never moving the headline", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const { row, headline } = shell.heroRow;
+    const style = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]").getAttribute("style");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语" });
+    shell.flushFrames();
+    assert.ok(style().includes("text-align:center"), "the tagline is centred by default");
+    assert.ok(style().includes("padding-left:0px"), "…with no inset to measure in this mode");
+    // The whole point of the feature: the headline is never touched.
+    assert.equal(row.style.justifyContent ?? "", "", "the headline row keeps the shipped centring");
+
+    // The headline text sits 262px in from the row's left edge (682 - 420).
+    shell.window.__DSH_BRAND.set({ taglineAlign: "title" });
+    shell.flushFrames();
+    assert.ok(style().includes("text-align:left"), "aligning to the title switches the line to left");
+    assert.ok(style().includes("padding-left:262px"), "…and insets it by the measured title offset");
+    assert.equal(row.style.justifyContent ?? "", "", "the headline is still untouched");
+
+    shell.window.__DSH_BRAND.set({ taglineAlign: "" });
+    shell.flushFrames();
+    assert.ok(style().includes("text-align:center"), "choosing the shipped centring restores it");
+    assert.ok(style().includes("padding-left:0px"), "…and drops the inset");
+    // The headline keeps its own layout throughout; the node is gone from it.
+    assert.equal(headline.style.textAlign ?? "", "", "the headline text is never restyled");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("re-measures the title offset when the headline is a different length", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const { headline } = shell.heroRow;
+    const style = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]").getAttribute("style");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语", taglineAlign: "title" });
+    shell.flushFrames();
+    assert.ok(style().includes("padding-left:262px"), "the initial title length gives a 262px inset");
+
+    // A longer title is centred less far from the row's left edge; the inset has
+    // to follow the rendered glyphs, not a value baked in when it was configured.
+    headline.layout = { left: 578, top: 257, right: 958, bottom: 289, width: 380, height: 32 };
+    // Relayouting the title is not a DOM mutation the observer can see, so the
+    // plugin needs the resize signal to know it must re-measure.
+    shell.window.dispatch("resize");
+    shell.flushFrames();
+    assert.ok(style().includes("padding-left:158px"), "a longer title yields the smaller measured inset");
+
+    // And back again, for a shorter title than either.
+    headline.layout = { left: 739, top: 257, right: 905, bottom: 289, width: 166, height: 32 };
+    shell.window.dispatch("resize");
+    shell.flushFrames();
+    assert.ok(style().includes("padding-left:319px"), "a shorter title yields the larger inset");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("stops listening for layout changes once the observer is torn down", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const style = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]").getAttribute("style");
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语", taglineAlign: "title" });
+    shell.flushFrames();
+    assert.ok(style().includes("padding-left:262px"));
+
+    // With the brand off there is no tagline and no listener work to do; a resize
+    // must not resurrect the node.
+    shell.window.__DSH_BRAND.set({ enabled: "" });
+    shell.flushFrames();
+    assert.equal(shell.dom.document.querySelector("[data-dsh-brand-tagline]"), null);
+    shell.window.dispatch("resize");
+    shell.flushFrames();
+    assert.equal(
+      shell.dom.document.querySelector("[data-dsh-brand-tagline]"),
+      null,
+      "a resize after switching the brand off leaves no tagline behind",
     );
   } finally {
     await shell.settle();
