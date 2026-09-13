@@ -85,10 +85,39 @@ function createDom() {
       getAttribute(name) {
         return this.attributes[name] ?? null;
       },
+      /** A node is in the document when its root is the captured body. */
+      get connectedTo() {
+        return this._body ?? null;
+      },
       appendChild(child) {
         this.children.push(child);
         child.parentElement = this;
         return child;
+      },
+      /** Insert `node` directly after this element, the way Element.after does. */
+      after(node) {
+        const parent = this.parentElement;
+        if (parent === null || parent === undefined) return;
+        const index = parent.children.indexOf(this);
+        // A re-insert of a node already in this parent has to move it, not clone it.
+        const existing = parent.children.indexOf(node);
+        if (existing >= 0) parent.children.splice(existing, 1);
+        parent.children.splice(index + 1, 0, node);
+        node.parentElement = parent;
+      },
+      remove() {
+        const parent = this.parentElement;
+        if (parent === null || parent === undefined) return;
+        const index = parent.children.indexOf(this);
+        if (index >= 0) parent.children.splice(index, 1);
+        this.parentElement = null;
+        this.isConnected = false;
+      },
+      get previousElementSibling() {
+        const parent = this.parentElement;
+        if (parent === null || parent === undefined) return null;
+        const index = parent.children.indexOf(this);
+        return index > 0 ? parent.children[index - 1] : null;
       },
       addEventListener() {},
       click() {},
@@ -98,48 +127,91 @@ function createDom() {
       toDataURL() {
         return "data:image/png;base64,AA==";
       },
-      querySelectorAll() {
-        return [];
+      /** Scoped search, matching what the production code asks of an element. */
+      querySelector(selector) {
+        return descendants(this, selector)[0] ?? null;
+      },
+      querySelectorAll(selector) {
+        return descendants(this, selector);
       },
     };
     elements.push(element);
     return element;
   };
+  /** Every descendant of `root` matching a selector, in document order. */
+  const descendants = (root, selector) => {
+    const found = [];
+    const walk = (node) => {
+      for (const child of node.children ?? []) {
+        if (matches(child, selector)) found.push(child);
+        walk(child);
+      }
+    };
+    walk(root);
+    return found;
+  };
+  const visit = descendants;
+  /** Attribute-presence, class-substring and bare tag selectors — all this bundle asks for. */
+  const matches = (element, selector) => {
+    // Checked before the generic attribute form: `[class*="x"]` has a `*` that
+    // the `[name]`/`[name="v"]` pattern below would not consume.
+    const byClass = /^\[class\*="([^"]*)"\]$/.exec(selector);
+    if (byClass !== null) return String(element.getAttribute("class") ?? "").includes(byClass[1]);
+    const attribute = /^\[([^\]=]+)(?:="([^"]*)")?\]$/.exec(selector);
+    if (attribute !== null) {
+      const value = element.getAttribute(attribute[1]);
+      return attribute[2] === undefined ? value !== null : value === attribute[2];
+    }
+    return element.tagName === selector.toUpperCase();
+  };
+  const body = makeElement("body");
   const document = {
     title: "A session - DeepSeek Harness",
     head: makeElement("head"),
-    body: makeElement("body"),
+    body,
     createElement: makeElement,
-    querySelector: () => null,
-    querySelectorAll: () => [],
+    querySelector: (selector) => visit(body, selector, [])[0] ?? null,
+    querySelectorAll: (selector) => visit(body, selector, []),
     createTreeWalker: () => ({ nextNode: () => null }),
   };
-  return { document, makeElement };
+  return { document, makeElement, body, visit };
 }
 
 /**
  * The blank-session hero as the shell renders it around the marked slot: a
  * headline row holding the slot host and the two text spans this plugin
- * substitutes. The shipped copy is the locale key itself, because the test's
- * fake locale service translates to `<namespace key>`.
+ * substitutes, all inside the stack that also carries the composer below.
+ *
+ * The shape mirrors the live DOM measured on 127.0.0.1:3081 — the mark anchor
+ * sits in a `display: contents` slot host inside a hitbox, two levels below the
+ * headline row, and the tagline's insertion point is `row.after(...)` inside the
+ * stack. The shipped copy is the locale key itself, because the test's fake
+ * locale service translates to `<namespace key>`.
  */
 function installHeroRow(dom) {
-  const { makeElement, document } = dom;
+  const { makeElement, document, body } = dom;
   const anchor = makeElement("span");
   anchor.setAttribute("data-dsh-brand-mark", "hero");
   const host = makeElement("span");
   host.appendChild(anchor);
   const headline = makeElement("span");
+  headline.setAttribute("class", "pXSMma_headlineText");
   headline.textContent = "hero.headline";
   const badge = makeElement("span");
+  badge.setAttribute("class", "pXSMma_previewBadge");
   badge.textContent = "hero.preview";
   const row = makeElement("div");
-  row.children = [host, headline, badge];
-  for (const child of row.children) child.parentElement = row;
-  row.querySelectorAll = () => [host, headline, badge];
-  for (const element of [anchor, host, headline, badge, row]) element.isConnected = true;
-  document.querySelector = (selector) => (selector === '[data-dsh-brand-mark="hero"]' ? anchor : null);
-  return { anchor, host, row, headline, badge };
+  row.setAttribute("class", "pXSMma_headline");
+  for (const child of [host, headline, badge]) row.appendChild(child);
+  const composer = makeElement("div");
+  composer.setAttribute("class", "pXSMma_body");
+  const stack = makeElement("div");
+  stack.setAttribute("class", "pXSMma_stack");
+  stack.appendChild(row);
+  stack.appendChild(composer);
+  body.appendChild(stack);
+  for (const element of [anchor, host, headline, badge, row, composer, stack, body]) element.isConnected = true;
+  return { anchor, host, row, headline, badge, composer, stack };
 }
 
 /**
@@ -439,6 +511,134 @@ test("substitutes the hero headline and hides the badge, then restores both", { 
     shell.flushFrames();
     assert.equal(badge.textContent, "限定版");
     assert.equal(badge.style.display, "", "a text badge stays in the flow");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("adds the tagline under the hero headline, then removes it when cleared", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const { stack, row } = shell.heroRow;
+    const tagline = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]");
+
+    assert.equal(tagline(), null, "no tagline node exists while the field is empty");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "让每一次对话都通向未来" });
+    shell.flushFrames();
+    const node = tagline();
+    assert.ok(node !== null, "the configured tagline is created");
+    assert.equal(node.textContent, "让每一次对话都通向未来");
+    assert.ok(node.parentElement === stack, "the tagline lives in the headline's own container");
+    assert.ok(node.previousElementSibling === row, "the tagline sits directly below the headline row");
+    assert.ok(
+      stack.children.indexOf(node) < stack.children.indexOf(shell.heroRow.composer),
+      "the tagline stays above the composer",
+    );
+
+    // Clearing the field removes the node outright: the shipped hero is restored
+    // byte-identical rather than left with an empty placeholder.
+    shell.window.__DSH_BRAND.set({ heroTagline: "" });
+    shell.flushFrames();
+    assert.equal(tagline(), null, "clearing the field removes the tagline node");
+    assert.equal(stack.children.length, 2, "the stack is back to headline + composer");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("applies the tagline size and colour, defaulting to the theme colour", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const style = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]").getAttribute("style");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语" });
+    shell.flushFrames();
+    assert.ok(style().includes("font-size:14px"), "an unset size uses the default");
+    assert.ok(style().includes("var(--dsw-alias-label-tertiary)"), "an unset colour follows the theme");
+
+    shell.window.__DSH_BRAND.set({ taglineSize: "22", taglineColor: "#ff8800" });
+    shell.flushFrames();
+    assert.ok(style().includes("font-size:22px"), "the configured size is applied");
+    assert.ok(style().includes("color:#ff8800"), "the configured colour is applied");
+
+    // Out-of-range sizes are clamped rather than passed through.
+    shell.window.__DSH_BRAND.set({ taglineSize: "400" });
+    shell.flushFrames();
+    assert.ok(style().includes("font-size:28px"), "an oversized value clamps to the maximum");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("leaves no tagline node while the master switch is off", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const tagline = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语" });
+    shell.flushFrames();
+    assert.ok(tagline() !== null, "the tagline appears while the brand is on");
+
+    shell.window.__DSH_BRAND.set({ enabled: "" });
+    shell.flushFrames();
+    assert.equal(tagline(), null, "switching the brand off removes the tagline too");
+
+    // And the setting itself survives the round trip: turning it back on restores it.
+    shell.window.__DSH_BRAND.set({ enabled: "1" });
+    shell.flushFrames();
+    assert.equal(tagline().textContent, "标语", "the saved tagline comes back with the switch");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("reuses one tagline node across syncs instead of duplicating it", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const nodes = () => shell.dom.document.querySelectorAll("[data-dsh-brand-tagline]");
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "一" });
+    shell.flushFrames();
+    const first = nodes()[0];
+    // Several passes stand in for the observer firing on its own writes: the
+    // synthesized node must be reused, never re-created (that would be an
+    // unbounded mutation loop in the live page).
+    shell.flushFrames();
+    shell.window.__DSH_BRAND.set({ heroTagline: "二" });
+    shell.flushFrames();
+    shell.flushFrames();
+    assert.equal(nodes().length, 1, "exactly one tagline node exists");
+    assert.equal(nodes()[0], first, "the same node instance is reused");
+    assert.equal(nodes()[0].textContent, "二", "the reused node carries the new text");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("picks the innermost headline holder, not an outer wrapper", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const { stack, row, composer } = shell.heroRow;
+    // The hero stack also contains the headline; a naive "any element containing a
+    // headline" lookup would pick it and drop the tagline below the composer.
+    assert.ok(stack.querySelector('[class*="headlineText"]') !== null, "the stack does contain a headline");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语" });
+    shell.flushFrames();
+    const node = shell.dom.document.querySelector("[data-dsh-brand-tagline]");
+    assert.ok(node !== null);
+    assert.ok(node.parentElement === stack, "the tagline's parent is the stack (the row's parent)");
+    assert.ok(node.previousElementSibling === row, "…and it follows the headline row itself");
+    assert.equal(
+      stack.children.indexOf(composer) - stack.children.indexOf(node),
+      1,
+      "the tagline sits immediately above the composer, not past it",
+    );
   } finally {
     await shell.settle();
     shell.restore();

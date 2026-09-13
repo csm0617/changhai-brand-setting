@@ -3,9 +3,9 @@
 English | [中文](README.zh.md)
 
 White-label the DeepSeek Harness Web GUI from a dedicated **Brand** page in
-Settings: the sidebar mark and wordmark, the blank-session hero headline and
-badge, the browser tab title and the favicon — with the shipped brand restored
-the moment the master switch goes off.
+Settings: the sidebar mark and wordmark, the blank-session hero headline,
+tagline and badge, the browser tab title and the favicon — with the shipped
+brand restored the moment the master switch goes off.
 
 Unlike a stylesheet-overlay skin, this plugin fills the brand holes the shell
 already declares, so the sidebar keeps its own layout, hit areas, fold
@@ -19,6 +19,7 @@ behaviour and hover states.
 | Sidebar wordmark | Occupant of the `sidebar.brand.name` slot |
 | Blank-session hero mark | Occupant of the `conversation.hero.brand.mark` slot |
 | Hero headline / preview badge | Guarded text substitution by exact match against the shipped copy, read from the live locale dictionary |
+| Hero tagline | A node this plugin **creates** under the headline, removed when the field is cleared |
 | Tab title, favicon | Guarded `document.title` / `rel="icon"` writes |
 
 The three slots are `kind: 'single'`, and
@@ -35,6 +36,16 @@ extension point either. Those are handled as opt-in, guarded rewrites: the
 plugin reads the shipped copy from the active locale dictionary, replaces nodes
 whose text matches it exactly, and restores them when the field is cleared.
 A reshaped surface degrades to "not found" rather than rewriting the wrong node.
+
+The **tagline** is the one surface the plugin *creates* rather than substitutes:
+the shipped hero has no tagline slot or string, so there is nothing to rewrite.
+A single marked node (`data-dsh-brand-tagline`) is inserted as a sibling of the
+headline row, which lays it out directly below the title and above the composer.
+The row is located from the same hero mark anchor the rest of the plugin uses,
+and accepted only when it is the innermost element holding the headline — the
+outer hero stack also contains one, and inserting there would drop the tagline
+below the composer instead. Cleared (the default), the node is removed outright,
+so the shipped hero stays byte-identical.
 
 ## Install
 
@@ -147,7 +158,8 @@ navigation, next to Appearance.
 - **Name** — the sidebar wordmark: text with size, weight, letter spacing and
   colour, or an image, or hidden.
 - **Hero** — the blank-session headline and the preview badge (keep the shipped
-  text, write your own, or hide it).
+  text, write your own, or hide it), plus a **tagline** under the title with its
+  own size and colour (empty = no tagline, the default).
 - **Browser** — the tab title (the product name is substituted inside
   `document.title`, keeping the session part) and the favicon.
 - **Live preview** — the page previews the mark and wordmark as you edit.
@@ -156,6 +168,7 @@ navigation, next to Appearance.
 
 ```js
 __DSH_BRAND.set({ enabled: '1', logoKind: 'text', logoText: '长海', nameKind: 'text', nameText: 'changhai' })
+__DSH_BRAND.set({ heroTagline: '让每一次对话都通向未来', taglineSize: '15' })
 __DSH_BRAND.get()    // current settings
 __DSH_BRAND.slots()  // slots currently claimed
 __DSH_BRAND.reset()  // back to the shipped brand
@@ -199,10 +212,11 @@ The smoke test loads `lib/client.js` through a captured
 `window.__ModuleLoader__.load`, drives it with a fake cordis context, DOM and
 storage, and asserts that the settings page registers, that slots are claimed
 only for configured surfaces (and released when switched off), that every
-registered component renders, and that the tab-title substitution works. It
+registered component renders, that the tab-title substitution works, that the
+tagline lands directly under the headline row and is removed outright when
+cleared (reusing one node across syncs rather than duplicating it). It
 resolves React from `$DSH_WEB_MODULES`, then
 `$DSH_HOME/profiles/web/node_modules`, then `./node_modules`.
-
 Host-half edits need a `dsh web` restart (the host loader caches modules by
 specifier); browser-half edits are picked up by `dsh-client-hmr` and reload the
 plugin in the open page.
@@ -215,6 +229,12 @@ plugin in the open page.
 - **Hero copy is substituted in the pages that render the shipped strings.**
   If a future version renames the classes the plugin probes for, the fallback
   path is a document-wide exact-text match, and failing that nothing is changed.
+- **The tagline depends on that same hero anchor.** It is inserted as a sibling
+  of the row holding the headline, so if the hero is reshaped beyond recognition
+  the tagline is not shown at all — it never guesses an insertion point. Because
+  the node is written from a `MutationObserver` callback, every write is
+  guarded by an equality check and the node is reused rather than recreated, so
+  a steady state produces no further mutations.
 - **Images are stored as data URLs** in the settings file, so prefer a simple
   mark over a photograph; a picked image longer than 1.5 M characters is
   refused, and the page says so instead of failing silently. An image source
