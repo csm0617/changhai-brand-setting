@@ -50,9 +50,12 @@ A reshaped surface degrades to "not found" rather than rewriting the wrong node.
 The **favicon** also defaults to the embedded mark, so the tab is branded out of
 the box. It is the same image the mark uses — no extra
 bytes — and clearing the field returns to it rather than to the shell's icon;
-picking a file replaces it. The tab *title* keeps the older behaviour and stays
-as shipped while its field is empty, since there is no sensible default copy for
-it.
+picking a file replaces it. The tab *title* ships copy too (`长海智能`): an empty
+field applies it and the shipped product name leaves the tab, while the session
+name and the rest of the string stay the shell's. The rewrite is idempotent — it
+rolls its own previous value back before substituting again, without which a
+second edit would find no product name left to replace and the tab would keep the
+stale title.
 
 The **tagline** is the one surface the plugin *creates* rather than substitutes:
 the shipped hero has no tagline slot or string, so there is nothing to rewrite.
@@ -201,8 +204,9 @@ navigation, next to Appearance.
   off the headline's own left edge) or **Centred**; the headline itself is never
   moved.
 - **Browser** — the tab title (the product name is substituted inside
-  `document.title`, keeping the session part) and the favicon, which falls back
-  to the built-in mark when no file is picked.
+  `document.title`, keeping the session part; an empty field applies the built-in
+  `长海智能`) and the favicon, which falls back to the built-in mark when no file
+  is picked.
 - **Live preview** — the page previews the mark and wordmark as you edit.
 
 ## Console API

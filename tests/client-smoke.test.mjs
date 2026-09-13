@@ -598,10 +598,23 @@ test("reads the previous version's off-state as off when hydrating", { skip: Rea
 test("substitutes the product name in the tab title", { skip: React === null }, async () => {
   const shell = boot();
   try {
+    // The title ships with copy of its own, so an untouched install still gets
+    // one -- an empty field no longer means "leave the shipped name in place".
     shell.dom.document.title = "A session - DeepSeek Harness";
+    shell.flushFrames();
+    assert.equal(shell.dom.document.title, "A session - 长海智能", "the built-in title applies by default");
+
+    // A typed value replaces the built-in one, and only the product name moves:
+    // the session-specific prefix is the shell's and stays.
     shell.window.__DSH_BRAND.set({ title: "长海" });
     shell.flushFrames();
     assert.equal(shell.dom.document.title, "A session - 长海");
+
+    // A title carrying no product name is left alone rather than appended to.
+    shell.dom.document.title = "A session";
+    shell.window.__DSH_BRAND.set({ title: "长海" });
+    shell.flushFrames();
+    assert.equal(shell.dom.document.title, "A session", "a title without the product name is untouched");
   } finally {
     await shell.settle();
     shell.restore();
