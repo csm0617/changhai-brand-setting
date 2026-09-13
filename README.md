@@ -273,6 +273,14 @@ plugin in the open page.
 
 ## Known limits
 
+- **A session switch can briefly revert the tab title to the shipped product
+  name.** The shell rewrites `document.title` whole every time the session title
+  changes (`session — product`), and that assignment produces no DOM mutation for
+  this plugin's `MutationObserver` to see, so the substitution waits for the next
+  sync (a settings edit, a DOM change, a resize). Cosmetic rather than wrong: what
+  shows is still the shell's real title. Fixing it properly means intercepting the
+  `document.title` accessor — a monkey patch that would contend with the shell and
+  with any third-party plugin for the same native property — so it is not done.
 - **Claiming the wordmark slot removes the shell's local-build badge**, because
   that badge lives inside the same fallback the official occupant replaces.
   Switch the name back to `Official` to get it back.
