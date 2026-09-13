@@ -46,6 +46,13 @@ plugin reads the shipped copy from the active locale dictionary, replaces nodes
 whose text matches it exactly, and restores them when the field is cleared.
 A reshaped surface degrades to "not found" rather than rewriting the wrong node.
 
+The **favicon** also defaults to the embedded mark, so the tab is branded the
+moment the master switch goes on. It is the same image the mark uses — no extra
+bytes — and clearing the field returns to it rather than to the shell's icon;
+picking a file replaces it. The tab *title* keeps the older behaviour and stays
+as shipped while its field is empty, since there is no sensible default copy for
+it.
+
 The **tagline** is the one surface the plugin *creates* rather than substitutes:
 the shipped hero has no tagline slot or string, so there is nothing to rewrite.
 A single marked node (`data-dsh-brand-tagline`) is inserted as a sibling of the
@@ -192,7 +199,8 @@ navigation, next to Appearance.
   off the headline's own left edge) or **Centred**; the headline itself is never
   moved.
 - **Browser** — the tab title (the product name is substituted inside
-  `document.title`, keeping the session part) and the favicon.
+  `document.title`, keeping the session part) and the favicon, which falls back
+  to the built-in mark when no file is picked.
 - **Live preview** — the page previews the mark and wordmark as you edit.
 
 ## Console API
@@ -245,7 +253,8 @@ The smoke test loads `lib/client.js` through a captured
 storage, and asserts that the settings page registers, that slots are claimed
 only for configured surfaces (and released when switched off), that every
 registered component renders, that the mark shows the built-in artwork on a fresh
-install and is replaced by a picked image, that the tab-title substitution
+install and is replaced by a picked image, that the favicon falls back to that
+same built-in image, that the tab-title substitution
 works, that the tagline shows the built-in line with no configuration at all and
 is removed only when explicitly hidden (reusing one node across syncs rather than
 duplicating it), and that aligning to the title writes the measured inset without

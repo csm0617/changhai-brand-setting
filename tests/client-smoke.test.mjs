@@ -158,7 +158,15 @@ function createDom() {
   };
   const visit = descendants;
   /** Attribute-presence, class-substring and bare tag selectors — all this bundle asks for. */
+  /** Tag, attribute, class-substring and `tag[attr="v"]` selectors — all this bundle asks for. */
   const matches = (element, selector) => {
+    // `tag[attr]` / `tag[attr="v"]`, e.g. link[rel="icon"] — the favicon lookup.
+    const compound = /^([a-zA-Z]+)\[([^\]=]+)(?:="([^"]*)")?\]$/.exec(selector);
+    if (compound !== null) {
+      if (element.tagName !== compound[1].toUpperCase()) return false;
+      const value = element.getAttribute(compound[2]);
+      return compound[3] === undefined ? value !== null : value === compound[3];
+    }
     // Checked before the generic attribute form: `[class*="x"]` has a `*` that
     // the `[name]`/`[name="v"]` pattern below would not consume.
     const byClass = /^\[class\*="([^"]*)"\]$/.exec(selector);
@@ -171,13 +179,17 @@ function createDom() {
     return element.tagName === selector.toUpperCase();
   };
   const body = makeElement("body");
+  const head = makeElement("head");
   const document = {
     title: "A session - DeepSeek Harness",
-    head: makeElement("head"),
+    head,
     body,
     createElement: makeElement,
-    querySelector: (selector) => visit(body, selector, [])[0] ?? null,
-    querySelectorAll: (selector) => visit(body, selector, []),
+    // The favicon path appends a <link> to head, so look in both roots: the
+    // plugin's other lookups all target the rendered body, and a hidden head
+    // would have made the favicon untestable.
+    querySelector: (selector) => visit(body, selector, [])[0] ?? visit(head, selector, [])[0] ?? null,
+    querySelectorAll: (selector) => [...visit(body, selector, []), ...visit(head, selector, [])],
     createTreeWalker: () => ({ nextNode: () => null }),
     /**
      * Layout stand-in. Elements carry an explicit `layout` box (set by the tests
@@ -823,6 +835,43 @@ test("stops listening for layout changes once the observer is torn down", { skip
       null,
       "a resize after switching the brand off leaves no tagline behind",
     );
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("points the favicon at the built-in mark, then at a picked image", { skip: React === null }, async () => {
+  const shell = boot();
+  try {
+    const icon = () => shell.dom.document.querySelector('link[rel="icon"]');
+
+    assert.equal(icon(), null, "nothing is written while the brand is off");
+
+    // Switching the brand on is enough: the tab icon is the embedded artwork, the
+    // same image the mark uses, with no file ever picked.
+    shell.window.__DSH_BRAND.set({ enabled: "1" });
+    shell.flushFrames();
+    const link = icon();
+    assert.ok(link !== null, "the brand switch installs a favicon");
+    const href = link.getAttribute("href");
+    assert.ok(href.startsWith("data:image/png;base64,"), "…the embedded PNG");
+    assert.ok(href.length > 1000, "…and it is the real artwork, not a stub");
+
+    // Picking a file replaces it.
+    shell.window.__DSH_BRAND.set({ favicon: "data:image/png;base64,AA==" });
+    shell.flushFrames();
+    assert.equal(icon().getAttribute("href"), "data:image/png;base64,AA==");
+
+    // Clearing goes back to the built-in image rather than leaving the tab bare.
+    shell.window.__DSH_BRAND.set({ favicon: "" });
+    shell.flushFrames();
+    assert.equal(icon().getAttribute("href"), href, "clearing restores the built-in icon");
+
+    // With the brand off nothing further is written; the shell keeps its own.
+    shell.window.__DSH_BRAND.set({ enabled: "" });
+    shell.flushFrames();
+    assert.equal(icon().getAttribute("href"), href, "the brand being off does not blank what is already there");
   } finally {
     await shell.settle();
     shell.restore();
