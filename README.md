@@ -5,7 +5,8 @@ English | [中文](README.zh.md)
 White-label the DeepSeek Harness Web GUI from a dedicated **Brand** page in
 Settings: the sidebar mark and wordmark, the blank-session hero headline,
 tagline and badge, the browser tab title and the favicon — with the shipped
-brand restored the moment the master switch goes off.
+brand restored the moment the master switch goes off. The switch ships **on**,
+so a fresh install is branded immediately.
 
 Unlike a stylesheet-overlay skin, this plugin fills the brand holes the shell
 already declares, so the sidebar keeps its own layout, hit areas, fold
@@ -33,7 +34,7 @@ fallbacks and the build badge stay exactly as shipped.
 
 The mark **ships with artwork of its own** — the Changhai wave, embedded in the
 browser half as a PNG data URL — so `logoKind` defaults to `image` and a fresh
-install is branded as soon as the master switch is on, with no file to carry
+install is branded out of the box, with no file to carry
 alongside the package. Picking your own image replaces it; choosing `shipped`
 hands the slots back to the official occupant. The embedded file is the source
 artwork at its own 50×51px, because the image pipeline never upscales it (see
@@ -46,8 +47,8 @@ plugin reads the shipped copy from the active locale dictionary, replaces nodes
 whose text matches it exactly, and restores them when the field is cleared.
 A reshaped surface degrades to "not found" rather than rewriting the wrong node.
 
-The **favicon** also defaults to the embedded mark, so the tab is branded the
-moment the master switch goes on. It is the same image the mark uses — no extra
+The **favicon** also defaults to the embedded mark, so the tab is branded out of
+the box. It is the same image the mark uses — no extra
 bytes — and clearing the field returns to it rather than to the shell's icon;
 picking a file replaces it. The tab *title* keeps the older behaviour and stays
 as shipped while its field is empty, since there is no sensible default copy for
@@ -184,8 +185,9 @@ fetch the bundle. Then reload the GUI page.
 Settings → **Brand**. The page is registered as its own section in the settings
 navigation, next to Appearance.
 
-- **Enable custom brand** — the master switch. Off (the default) leaves the
-  shipped brand untouched; the configuration is kept either way.
+- **Enable custom brand** — the master switch. **On by default**, so the install
+  is branded without opening Settings; switching it off restores the shipped
+  brand immediately and the configuration is kept either way.
 - **Mark** — `Image` (the default: the built-in Changhai wave, or pick a file to
   replace it — downscaled to at most 512 px and stored as a PNG data URL) /
   `Official` / `Text` (a monogram or emoji) / `Hidden`, plus a size.

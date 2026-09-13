@@ -306,7 +306,7 @@ function createCtx(declared) {
 }
 
 /** Boot the bundle against a fake shell. */
-function boot({ declared, hero } = {}) {
+function boot({ declared, hero, stored } = {}) {
   const dom = createDom();
   const heroRow = hero === true ? installHeroRow(dom) : null;
   const frames = [];
@@ -368,7 +368,9 @@ function boot({ declared, hero } = {}) {
   globalThis.Image = class {};
   globalThis.fetch = async (url, init) => {
     calls.push({ url, body: JSON.parse(init.body) });
-    return { ok: true, status: 200, json: async () => ({ ok: true, value: {} }) };
+    // `stored` stands in for what the host file holds. Hydration is the only path
+    // that can deliver a legacy value the store would otherwise normalize away.
+    return { ok: true, status: 200, json: async () => ({ ok: true, value: stored ?? {} }) };
   };
 
   const shell = { registrations: null };
@@ -423,19 +425,25 @@ function propsFor(registration, brand) {
   return { ...composed, size: 24, className: "", t: (key) => key, close: () => {}, ...brand };
 }
 
-test("registers the Brand settings page and no brand slots by default", { skip: React === null }, async () => {
+test("registers the Brand settings page and the built-in mark by default", { skip: React === null }, async () => {
   const shell = boot();
   try {
     const sections = shell.registrations.filter((entry) => entry.options.name === "settings.section");
     assert.equal(sections.length, 1);
     assert.equal(sections[0].options.id, "changhai-brand-setting");
     assert.equal(sections[0].options.locale, "changhai-brand-setting");
+    // The switch ships on, so a fresh install is branded without anyone opening
+    // Settings: the mark slots are taken by the built-in Changhai image, while
+    // the surfaces whose default is "shipped" stay with the shell.
+    assert.deepEqual(shell.window.__DSH_BRAND.slots(), [
+      "sidebar.brand.mark",
+      "conversation.hero.brand.mark",
+    ]);
     assert.equal(
-      shell.registrations.filter((entry) => entry.options.name.startsWith("sidebar.brand")).length,
+      shell.registrations.filter((entry) => entry.options.name === "sidebar.brand.name").length,
       0,
-      "the shipped brand stays untouched while nothing is configured",
+      "the wordmark is left with the shell until a source is chosen",
     );
-    assert.equal(shell.window.__DSH_BRAND.slots().length, 0);
   } finally {
     await shell.settle();
     shell.restore();
@@ -538,15 +546,49 @@ test("renders the settings page with the shipped hero copy as placeholder", { sk
   }
 });
 
-test("releases the slots and restores the shipped brand when switched off", { skip: React === null }, async () => {
+test("ships the master switch on, and releases the slots when switched off", { skip: React === null }, async () => {
   const shell = boot();
   try {
+    // Nothing configured at all: the switch still reads as on, so the built-in
+    // mark takes the two mark slots without anyone opening Settings.
+    assert.equal(shell.registrations.filter((entry) => entry.options.name !== "settings.section").length, 2);
+
     shell.window.__DSH_BRAND.set({ enabled: "1", logoKind: "image", logoImage: "data:image/png;base64,AA==" });
     assert.equal(shell.registrations.filter((entry) => entry.options.name !== "settings.section").length, 2);
-    shell.window.__DSH_BRAND.set({ enabled: "" });
+
+    // Only an explicit "0" turns it off -- an absent key is the default-on state.
+    shell.window.__DSH_BRAND.set({ enabled: "0" });
     assert.equal(shell.registrations.filter((entry) => entry.options.name !== "settings.section").length, 0);
+
     shell.window.__DSH_BRAND.reset();
     assert.deepEqual(shell.window.__DSH_BRAND.get(), {});
+    assert.equal(
+      shell.registrations.filter((entry) => entry.options.name !== "settings.section").length,
+      2,
+      "restoring defaults turns the brand back on rather than off",
+    );
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("reads the previous version's off-state as off when hydrating", { skip: React === null }, async () => {
+  // The old build stored "" for "switched off". A key whose absence now means on
+  // must not flip that user's choice just because they upgraded.
+  const shell = boot({ stored: { enabled: "", logoKind: "text", logoText: "长海" } });
+  try {
+    await shell.settle();
+    assert.equal(shell.window.__DSH_BRAND.get().enabled, "", "the legacy value survives hydration verbatim");
+    assert.deepEqual(shell.window.__DSH_BRAND.slots(), [], "…and keeps the brand released");
+
+    // Switching it back on must write a value that is *not* the legacy "" -- the
+    // checkbox cannot clear the key, or the switch would snap back to off.
+    shell.window.__DSH_BRAND.set({ enabled: "1" });
+    assert.deepEqual(shell.window.__DSH_BRAND.slots(), [
+      "sidebar.brand.mark",
+      "conversation.hero.brand.mark",
+    ]);
   } finally {
     await shell.settle();
     shell.restore();
@@ -685,11 +727,15 @@ test("leaves no tagline node while the master switch is off", { skip: React === 
   try {
     const tagline = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]");
 
+    // The switch is on by default, so the built-in line is already there.
+    shell.flushFrames();
+    assert.ok(tagline() !== null, "the built-in tagline shows without being configured");
+
     shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语" });
     shell.flushFrames();
     assert.ok(tagline() !== null, "the tagline appears while the brand is on");
 
-    shell.window.__DSH_BRAND.set({ enabled: "" });
+    shell.window.__DSH_BRAND.set({ enabled: "0" });
     shell.flushFrames();
     assert.equal(tagline(), null, "switching the brand off removes the tagline too");
 
@@ -825,7 +871,7 @@ test("stops listening for layout changes once the observer is torn down", { skip
 
     // With the brand off there is no tagline and no listener work to do; a resize
     // must not resurrect the node.
-    shell.window.__DSH_BRAND.set({ enabled: "" });
+    shell.window.__DSH_BRAND.set({ enabled: "0" });
     shell.flushFrames();
     assert.equal(shell.dom.document.querySelector("[data-dsh-brand-tagline]"), null);
     shell.window.dispatch("resize");
@@ -846,14 +892,11 @@ test("points the favicon at the built-in mark, then at a picked image", { skip: 
   try {
     const icon = () => shell.dom.document.querySelector('link[rel="icon"]');
 
-    assert.equal(icon(), null, "nothing is written while the brand is off");
-
-    // Switching the brand on is enough: the tab icon is the embedded artwork, the
-    // same image the mark uses, with no file ever picked.
-    shell.window.__DSH_BRAND.set({ enabled: "1" });
+    // The brand is on by default, so the tab icon is the embedded artwork with no
+    // file ever picked and no setting ever touched.
     shell.flushFrames();
     const link = icon();
-    assert.ok(link !== null, "the brand switch installs a favicon");
+    assert.ok(link !== null, "the default-on brand installs a favicon");
     const href = link.getAttribute("href");
     assert.ok(href.startsWith("data:image/png;base64,"), "…the embedded PNG");
     assert.ok(href.length > 1000, "…and it is the real artwork, not a stub");
@@ -869,7 +912,7 @@ test("points the favicon at the built-in mark, then at a picked image", { skip: 
     assert.equal(icon().getAttribute("href"), href, "clearing restores the built-in icon");
 
     // With the brand off nothing further is written; the shell keeps its own.
-    shell.window.__DSH_BRAND.set({ enabled: "" });
+    shell.window.__DSH_BRAND.set({ enabled: "0" });
     shell.flushFrames();
     assert.equal(icon().getAttribute("href"), href, "the brand being off does not blank what is already there");
   } finally {
