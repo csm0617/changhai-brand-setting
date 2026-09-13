@@ -45,20 +45,25 @@ headline row, which lays it out directly below the title and above the composer.
 The row is located from the same hero mark anchor the rest of the plugin uses,
 and accepted only when it is the innermost element holding the headline — the
 outer hero stack also contains one, and inserting there would drop the tagline
-below the composer instead. Cleared (the default), the node is removed outright,
-so the shipped hero stays byte-identical.
+below the composer instead.
 
-The tagline can also be **aligned to the title** instead of centred. Only the
-tagline moves: the headline keeps the shell's layout untouched, which is why the
-override is written as `text-align` + `padding-left` on the tagline node alone
-rather than by restyling the row. The padding is the *measured* distance from the
-row's left edge to where the centred title's glyphs actually begin — read with a
-`Range` over the headline's contents, because that distance follows the title's
-rendered width and is not derivable from the text (measured on the live shell:
-~158px for a long headline, ~319px for a short one). It is re-measured whenever
-the copy changes and on `resize`, since a viewport change or a swapping web font
-reflows the title without any DOM mutation to observe. Centring, the default,
-measures nothing and writes no inset.
+It is also the one surface that ships with **copy of its own**
+(`创新求变破困局，冲上山头论英雄`), so an empty field means "use the shipped
+line" rather than "show nothing". Hiding it is a separate, explicit choice, which
+keeps those two intents from colliding inside one empty value. Turning the master
+switch off removes the node outright, leaving the shipped hero byte-identical.
+
+The tagline is **aligned to the title** by default (centring is the other
+option). Only the tagline moves: the headline keeps the shell's layout untouched,
+which is why the override is written as `text-align` + `padding-left` on the
+tagline node alone rather than by restyling the row. The padding is the
+*measured* distance from the row's left edge to where the centred title's glyphs
+actually begin — read with a `Range` over the headline's contents, because that
+distance follows the title's rendered width and is not derivable from the text
+(measured on the live shell: ~158px for a long headline, ~319px for a short one).
+It is re-measured whenever the copy changes and on `resize`, since a viewport
+change or a swapping web font reflows the title without any DOM mutation to
+observe. Choosing centring measures nothing and writes no inset.
 
 ## Install
 
@@ -172,9 +177,11 @@ navigation, next to Appearance.
   colour, or an image, or hidden.
 - **Hero** — the blank-session headline and the preview badge (keep the shipped
   text, write your own, or hide it), plus a **tagline** under the title with its
-  own size, colour and alignment (empty = no tagline, the default). The tagline
-  is either **Centred** (the default) or **Align to title**, which hangs it from
-  the headline's own left edge; the headline itself is never moved.
+  own size, colour and alignment. Leave the field empty for the built-in line
+  (`创新求变破困局，冲上山头论英雄`), type your own, or set **Hidden** to remove
+  it altogether. Alignment is **Align to title** (the default, hanging the line
+  off the headline's own left edge) or **Centred**; the headline itself is never
+  moved.
 - **Browser** — the tab title (the product name is substituted inside
   `document.title`, keeping the session part) and the favicon.
 - **Live preview** — the page previews the mark and wordmark as you edit.
@@ -184,6 +191,7 @@ navigation, next to Appearance.
 ```js
 __DSH_BRAND.set({ enabled: '1', logoKind: 'text', logoText: '长海', nameKind: 'text', nameText: 'changhai' })
 __DSH_BRAND.set({ heroTagline: '让每一次对话都通向未来', taglineSize: '15', taglineAlign: 'title' })
+__DSH_BRAND.set({ heroTagline: '', taglineHidden: '1' })   // built-in line → hidden
 __DSH_BRAND.get()    // current settings
 __DSH_BRAND.slots()  // slots currently claimed
 __DSH_BRAND.reset()  // back to the shipped brand
@@ -228,10 +236,10 @@ The smoke test loads `lib/client.js` through a captured
 storage, and asserts that the settings page registers, that slots are claimed
 only for configured surfaces (and released when switched off), that every
 registered component renders, that the tab-title substitution works, that the
-tagline lands directly under the headline row and is removed outright when
-cleared (reusing one node across syncs rather than duplicating it), and that
-aligning to the title writes the measured inset without ever restyling the
-headline. It
+tagline shows the built-in line with no configuration at all and is removed only
+when explicitly hidden (reusing one node across syncs rather than duplicating
+it), and that aligning to the title writes the measured inset without ever
+restyling the headline. It
 resolves React from `$DSH_WEB_MODULES`, then
 `$DSH_HOME/profiles/web/node_modules`, then `./node_modules`.
 Host-half edits need a `dsh web` restart (the host loader caches modules by

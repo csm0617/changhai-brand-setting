@@ -560,19 +560,21 @@ test("substitutes the hero headline and hides the badge, then restores both", { 
   }
 });
 
-test("adds the tagline under the hero headline, then removes it when cleared", { skip: React === null }, async () => {
+test("shows the built-in tagline by default, and places it under the headline", { skip: React === null }, async () => {
   const shell = boot({ hero: true });
   try {
     const { stack, row } = shell.heroRow;
     const tagline = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]");
 
-    assert.equal(tagline(), null, "no tagline node exists while the field is empty");
+    assert.equal(tagline(), null, "nothing is written while the brand is off");
 
-    shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "让每一次对话都通向未来" });
+    // The tagline ships with copy of its own: enabling the brand is enough to
+    // show it, with no value ever typed into the field.
+    shell.window.__DSH_BRAND.set({ enabled: "1" });
     shell.flushFrames();
     const node = tagline();
-    assert.ok(node !== null, "the configured tagline is created");
-    assert.equal(node.textContent, "让每一次对话都通向未来");
+    assert.ok(node !== null, "the built-in tagline appears once the brand is on");
+    assert.equal(node.textContent, "创新求变破困局，冲上山头论英雄", "…and it is the shipped line");
     assert.ok(node.parentElement === stack, "the tagline lives in the headline's own container");
     assert.ok(node.previousElementSibling === row, "the tagline sits directly below the headline row");
     assert.ok(
@@ -580,12 +582,43 @@ test("adds the tagline under the hero headline, then removes it when cleared", {
       "the tagline stays above the composer",
     );
 
-    // Clearing the field removes the node outright: the shipped hero is restored
-    // byte-identical rather than left with an empty placeholder.
+    // A typed value replaces the built-in line rather than adding to it.
+    shell.window.__DSH_BRAND.set({ heroTagline: "让每一次对话都通向未来" });
+    shell.flushFrames();
+    assert.equal(tagline().textContent, "让每一次对话都通向未来");
+    assert.equal(shell.dom.document.querySelectorAll("[data-dsh-brand-tagline]").length, 1, "still one node");
+
+    // Clearing goes back to the built-in line — it does NOT hide the tagline.
     shell.window.__DSH_BRAND.set({ heroTagline: "" });
     shell.flushFrames();
-    assert.equal(tagline(), null, "clearing the field removes the tagline node");
+    assert.equal(tagline().textContent, "创新求变破困局，冲上山头论英雄", "clearing restores the shipped line");
+  } finally {
+    await shell.settle();
+    shell.restore();
+  }
+});
+
+test("removes the tagline only when it is explicitly hidden", { skip: React === null }, async () => {
+  const shell = boot({ hero: true });
+  try {
+    const { stack } = shell.heroRow;
+    const tagline = () => shell.dom.document.querySelector("[data-dsh-brand-tagline]");
+
+    shell.window.__DSH_BRAND.set({ enabled: "1" });
+    shell.flushFrames();
+    assert.ok(tagline() !== null, "shown by default");
+
+    // The one way to get rid of the line: an explicit hide, since an empty field
+    // now means "use the shipped copy".
+    shell.window.__DSH_BRAND.set({ taglineHidden: "1" });
+    shell.flushFrames();
+    assert.equal(tagline(), null, "hiding removes the node outright");
     assert.equal(stack.children.length, 2, "the stack is back to headline + composer");
+
+    // …and unhiding brings it straight back.
+    shell.window.__DSH_BRAND.set({ taglineHidden: "" });
+    shell.flushFrames();
+    assert.equal(tagline().textContent, "创新求变破困局，冲上山头论英雄", "unhiding restores the line");
   } finally {
     await shell.settle();
     shell.restore();
@@ -696,22 +729,24 @@ test("hangs the tagline off the headline's left edge, never moving the headline"
 
     shell.window.__DSH_BRAND.set({ enabled: "1", heroTagline: "标语" });
     shell.flushFrames();
-    assert.ok(style().includes("text-align:center"), "the tagline is centred by default");
-    assert.ok(style().includes("padding-left:0px"), "…with no inset to measure in this mode");
+    // Aligned to the title is now the shipped default, so the inset is measured
+    // without anyone choosing that mode.
+    assert.ok(style().includes("text-align:left"), "the default alignment is left (aligned to the title)");
+    assert.ok(style().includes("padding-left:262px"), "…with the measured title offset");
     // The whole point of the feature: the headline is never touched.
     assert.equal(row.style.justifyContent ?? "", "", "the headline row keeps the shipped centring");
 
     // The headline text sits 262px in from the row's left edge (682 - 420).
-    shell.window.__DSH_BRAND.set({ taglineAlign: "title" });
+    shell.window.__DSH_BRAND.set({ taglineAlign: "center" });
     shell.flushFrames();
-    assert.ok(style().includes("text-align:left"), "aligning to the title switches the line to left");
-    assert.ok(style().includes("padding-left:262px"), "…and insets it by the measured title offset");
+    assert.ok(style().includes("text-align:center"), "choosing the shipped centring switches the line to centre");
+    assert.ok(style().includes("padding-left:0px"), "…and drops the inset");
     assert.equal(row.style.justifyContent ?? "", "", "the headline is still untouched");
 
     shell.window.__DSH_BRAND.set({ taglineAlign: "" });
     shell.flushFrames();
-    assert.ok(style().includes("text-align:center"), "choosing the shipped centring restores it");
-    assert.ok(style().includes("padding-left:0px"), "…and drops the inset");
+    assert.ok(style().includes("text-align:left"), "clearing the choice restores the aligned-to-title default");
+    assert.ok(style().includes("padding-left:262px"), "…with the inset measured again");
     // The headline keeps its own layout throughout; the node is gone from it.
     assert.equal(headline.style.textAlign ?? "", "", "the headline text is never restyled");
   } finally {
